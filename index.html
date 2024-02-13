@@ -8,6 +8,18 @@
     body {
       margin: 0;
     }
+
+    #dropzone {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #canvas {
+      position: absolute;
+    }
   </style>
   <script type="importmap">
 			{
@@ -16,26 +28,32 @@
 				"three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
 			  }
 			}
-		  </script>
+  </script>
 </head>
 
 <body>
+  <canvas id="canvas"></canvas>
+  <div id="dropzone"></div>
   <script type="module">
     import * as THREE from 'three';
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-    const renderer = new THREE.WebGLRenderer();
+    const canvas = document.getElementById("canvas");
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
 
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const material = new THREE.MeshBasicMaterial({ color: 0xff00ff });
     const cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
 
     camera.position.z = 5;
+
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff00ff });
 
     function animate() {
       requestAnimationFrame(animate);
@@ -47,6 +65,37 @@
     }
 
     animate();
+
+    const dropzone = document.getElementById("dropzone");
+    window.ondrop = (event) => {
+      event.preventDefault();
+    };
+    dropzone.ondragover = dropzone.ondragenter = (event) => {
+      event.preventDefault();
+    };
+    dropzone.ondrop = (event) => {
+      const file = event.dataTransfer.files[0];
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const data = JSON.parse(event.target.result);
+        data.annotations.forEach(annotation => {
+          const buffer = annotation.segmentation[0];
+          const pointCount = buffer.length / 2;
+
+          const points = [];
+          for (let i = 0; i < pointCount; i++) {
+            const x = buffer[i * 2] / 8000.;
+            const y = buffer[i * 2 + 1] / 8000.;
+            points.push(new THREE.Vector3(x, y, 0.));
+          }
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const line = new THREE.Line(geometry, material);
+          scene.add(line);
+        });
+      };
+      console.log(file);
+      reader.readAsText(file);
+    };
   </script>
 </body>
 
